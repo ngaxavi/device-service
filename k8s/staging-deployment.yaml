@@ -26,6 +26,8 @@ spec:
               value: kafka.kafka
             - name: KAFKA_PORT
               value: "9094"
+            - name: CREDENTIALS
+              value: WGF2aWVyOnplZHFxdWxyZnFxYwo=
       imagePullSecrets:
         - name: registry-devops
 
@@ -56,8 +58,8 @@ metadata:
   labels:
     app: device
 stringData:
-  MONGO_USER: ""
-  MONGO_PASSWORD: ""
+  MONGO_USER: device-service
+  MONGO_PASSWORD: WzyF86Ec5j64Kcsag1UH
   MONGO_HOST: database
 type: Opaque
 
