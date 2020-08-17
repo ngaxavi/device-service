@@ -10,6 +10,13 @@
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
-    "incremental": true
+    "incremental": true,
+    "paths": {
+      "@device/logger": ["src/logger"],
+      "@device/config": ["src/config"],
+      "@device/auth": ["src/auth"],
+      "@device/validation": ["src/validation"],
+      "@device/kafka": ["src/kafka"]
+    }
   }
 }
