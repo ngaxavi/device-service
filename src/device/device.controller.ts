@@ -18,8 +18,7 @@ export class DeviceController {
     private readonly deviceService: DeviceService,
     private readonly config: ConfigService,
     private readonly eventHandler: EventHandler,
-  ) {
-  }
+  ) {}
 
   @Get()
   async findAll(): Promise<Device[]> {
