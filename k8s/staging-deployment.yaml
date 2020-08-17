@@ -19,6 +19,10 @@ spec:
         - name: device
           image: registry.ngaxavilabs.com/devops/device
           imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: device
+                optional: false
           env:
             - name: KAFKA_PREFIX
               value: staging
