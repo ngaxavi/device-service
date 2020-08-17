@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/ngaxavi/device-service/compare/v1.0.0...v1.0.1) (2020-08-17)
+
+
+### Bug Fixes
+
+* endpoint for controller ([5a8b81f](https://github.com/ngaxavi/device-service/commit/5a8b81f5dd1e91f8ddb65637474073cea813ce1a))
+
 # 1.0.0 (2020-08-17)
 
 
