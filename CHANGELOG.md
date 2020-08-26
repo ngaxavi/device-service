@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/ngaxavi/device-service/compare/v1.1.0...v1.1.1) (2020-08-26)
+
+
+### Bug Fixes
+
+* name tag release ([3a113f4](https://github.com/ngaxavi/device-service/commit/3a113f4b78f04cfeb8b8a0a091042a92666bd23c))
+
 # [1.1.0](https://github.com/ngaxavi/device-service/compare/v1.0.1...v1.1.0) (2020-08-26)
 
 
