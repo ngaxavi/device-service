@@ -1,5 +1,7 @@
+import { ConfigService } from '@device/config';
+import { UpdateDeviceDto } from './dto/update-device-dto';
 import { HttpService, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { Device, Measurement, MeasurementStatus, RegisteredFlatDevices } from './device.schema';
 import { LoggerService } from '@device/logger';
@@ -9,19 +11,20 @@ import { MeasurementValue, RoomMeasurement } from './device.interface';
 import { v4 as uuid } from 'uuid';
 import { ClientKafka } from '@nestjs/microservices';
 
-
 @Injectable()
 export class DeviceService {
   credentials = process.env.CREDENTIALS;
 
-  constructor(@InjectModel('Device') private readonly model: Model<Device>,
-              @InjectModel('RegisteredFlatDevices') private readonly registeredFlatDevicesModel: Model<RegisteredFlatDevices>,
-              @InjectModel('Measurement') private readonly measurementModel: Model<Measurement>,
-              @InjectModel('MeasurementStatus') private readonly measurementStatusModel: Model<MeasurementStatus>,
-              @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientKafka,
-              private readonly httpService: HttpService,
-              private readonly logger: LoggerService) {
-  }
+  constructor(
+    @InjectModel('Device') private readonly model: Model<Device>,
+    @InjectModel('RegisteredFlatDevices') private readonly registeredFlatDevicesModel: Model<RegisteredFlatDevices>,
+    @InjectModel('Measurement') private readonly measurementModel: Model<Measurement>,
+    @InjectModel('MeasurementStatus') private readonly measurementStatusModel: Model<MeasurementStatus>,
+    @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientKafka,
+    private readonly config: ConfigService,
+    private readonly httpService: HttpService,
+    private readonly logger: LoggerService,
+  ) {}
 
   @Interval(10000)
   async pollMeasurements(): Promise<void> {
@@ -35,16 +38,24 @@ export class DeviceService {
     // update measurement status
     const measurementStatus = await this.measurementStatusModel.find().exec();
     if (!measurementStatus[0]) {
-      await this.measurementStatusModel.create({ lastUpdate: new Date(), timeDiffInMillis: 0})
+      await this.measurementStatusModel.create({ lastUpdate: new Date(), timeDiffInMillis: 0 });
     } else {
       const nowDate = Date.now();
-      const timeDiffInMillis = measurementStatus[0].lastUpdate ? nowDate - new Date(measurementStatus[0].lastUpdate).getTime() : 0;
-      await this.measurementStatusModel.updateOne({ '_id': measurementStatus[0]._id }, {
-        $set: {
-          lastUpdate: new Date(nowDate),
-          timeDiffInMillis,
-        },
-      }, { new: true }).exec();
+      const timeDiffInMillis = measurementStatus[0].lastUpdate
+        ? nowDate - new Date(measurementStatus[0].lastUpdate).getTime()
+        : 0;
+      await this.measurementStatusModel
+        .updateOne(
+          { _id: measurementStatus[0]._id },
+          {
+            $set: {
+              lastUpdate: new Date(nowDate),
+              timeDiffInMillis,
+            },
+          },
+          { new: true },
+        )
+        .exec();
     }
   }
 
@@ -54,6 +65,18 @@ export class DeviceService {
 
   async findOne(id: string): Promise<Device> {
     return this.model.findById(id);
+  }
+
+  async updateOne(id: string, dto: UpdateDeviceDto): Promise<Device> {
+    this.logger.debug(`DeviceService - update device`);
+
+    const doc = await this.model.findOneAndUpdate({ _id: new Types.ObjectId(id) }, { $set: dto }, { new: true }).exec();
+
+    if (!doc) {
+      throw new NotFoundException();
+    }
+
+    return doc;
   }
 
   async getMeasurementStatus(): Promise<MeasurementStatus> {
@@ -69,16 +92,18 @@ export class DeviceService {
       await this.registeredFlatDevicesModel.create(dto);
 
       // collect all devices in flat
-      const bulkOperations = roomsMeasurements.map((rm: RoomMeasurement) => rm.roomNr).map((roomNr: number) => ({
-        insertOne: {
-          document: {
-            deviceId: uuid(),
-            flatId: dto.flatId,
-            name: `device-${dto.flatId}-room-${roomNr}`,
-            roomNr,
+      const bulkOperations = roomsMeasurements
+        .map((rm: RoomMeasurement) => rm.roomNr)
+        .map((roomNr: number) => ({
+          insertOne: {
+            document: {
+              deviceId: uuid(),
+              flatId: dto.flatId,
+              name: `device-${dto.flatId}-room-${roomNr}`,
+              roomNr,
+            },
           },
-        },
-      }));
+        }));
 
       const bulkOpResult = await this.model.bulkWrite(bulkOperations);
       const { insertedIds } = bulkOpResult;
@@ -94,27 +119,28 @@ export class DeviceService {
       }));
 
       await this.measurementModel.bulkWrite(measurementsBulkOperations);
-      this.kafkaClient.emit('device-created-event', {
+      this.kafkaClient.emit(`${this.config.getKafka().prefix}-device-created-event`, {
         id: uuid(),
         type: 'event',
         action: 'DeviceCreated',
         timestamp: Date.now(),
         data: {
           flatId: dto.flatId,
-          status: 'CREATED',
+          devicesStatus: 'CREATED',
+          rooms: roomsMeasurements.map((rm: RoomMeasurement) => rm.roomNr),
         },
       });
-
     } catch (err) {
       this.logger.error(err);
-      this.kafkaClient.emit('device-created-event', {
+      this.kafkaClient.emit(`${this.config.getKafka().prefix}-device-created-event`, {
         id: uuid(),
         type: 'event',
         action: 'DeviceCreated',
         timestamp: Date.now(),
         data: {
           flatId: dto.flatId,
-          status: 'NO_CREATED',
+          devicesStatus: 'FAILED',
+          rooms: [],
         },
       });
       return false;
@@ -129,7 +155,7 @@ export class DeviceService {
   }
 
   async deleteOne(flatId: string): Promise<boolean> {
-
+    this.logger.debug(`Delete all devices for the flat ${flatId}`);
     const deletion = await this.registeredFlatDevicesModel.deleteOne({ flatId }).exec();
     if (deletion.n < 1) {
       throw new NotFoundException();
@@ -141,15 +167,16 @@ export class DeviceService {
     if (!flatDevices.length) {
       throw new NotFoundException();
     }
-    const bulkOperations = flatDevices.map((device) => ({ deleteOne: { filter: { '_id': device._id } } }));
+    const bulkOperations = flatDevices.map((device) => ({ deleteOne: { filter: { _id: device._id } } }));
     await this.measurementModel.bulkWrite(bulkOperations);
     await this.model.deleteMany({ flatId }).exec();
 
     return true;
   }
 
-  async readMeasurements(deviceId: string): Promise<MeasurementValue[]> {
-    const measurement = await this.measurementModel.findOne({ deviceId }).exec();
+  async readMeasurements(id: string): Promise<MeasurementValue[]> {
+    this.logger.debug(`Read measurements of ${id}`);
+    const measurement = await this.measurementModel.findOne({ _id: new Types.ObjectId(id) }).exec();
     return measurement.values as MeasurementValue[];
   }
 
@@ -159,7 +186,9 @@ export class DeviceService {
     return new Promise<any>(async (resolve, reject) => {
       try {
         const response = await this.httpService
-          .get(`https://applik-d18.iee.fraunhofer.de:8443/flat/${flatId}/measurements/`, { headers: { authorization: `Basic ${this.credentials}` } })
+          .get(`https://applik-d18.iee.fraunhofer.de:8443/flat/${flatId}/measurements/`, {
+            headers: { authorization: `Basic ${this.credentials}` },
+          })
           .toPromise();
 
         const roomsMeasurements = response.data.rooms;
@@ -183,7 +212,7 @@ export class DeviceService {
       };
       return {
         updateOne: {
-          filter: { '_id': device._id },
+          filter: { _id: device._id },
           update: {
             $addToSet: {
               values: measurement,
@@ -195,7 +224,6 @@ export class DeviceService {
 
     await this.measurementModel.bulkWrite(bulkOperations);
 
-
     for (const device of flatDevices) {
       console.log(device);
       const roomMeasurement = roomsMeasurements.find((rm: RoomMeasurement) => rm.roomNr === device.roomNr);
@@ -205,9 +233,9 @@ export class DeviceService {
         meterValue: roomMeasurement.meterValue.value,
       };
       console.log(measurement);
-      await this.measurementModel.update({ '_id': device._id }, { $addToSet: { values: measurement } }, { upsert: true }).exec();
+      await this.measurementModel
+        .update({ _id: device._id }, { $addToSet: { values: measurement } }, { upsert: true })
+        .exec();
     }
   }
-
-
 }
