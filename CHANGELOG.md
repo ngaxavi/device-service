@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/ngaxavi/device-service/compare/v1.0.1...v1.1.0) (2020-08-26)
+
+
+### Features
+
+* add kafka event and fix some config errors ([b62e7ae](https://github.com/ngaxavi/device-service/commit/b62e7ae3a77664f0c2d83657479b6e6ab557f4f0))
+
 ## [1.0.1](https://github.com/ngaxavi/device-service/compare/v1.0.0...v1.0.1) (2020-08-17)
 
 
