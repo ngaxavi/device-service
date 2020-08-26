@@ -1,4 +1,5 @@
-import { Controller, Get, Param, UseFilters, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
+import { UpdateDeviceDto } from './dto/update-device-dto';
+import { Controller, Get, Param, UseFilters, UseGuards, UsePipes, ValidationPipe, Put, Body } from '@nestjs/common';
 import { KafkaEvent, KafkaExceptionFilter, KafkaTopic } from '@device/kafka';
 import { Roles, RolesGuard } from '@device/auth';
 import { DeviceService } from './device.service';
@@ -21,6 +22,7 @@ export class DeviceController {
   ) {}
 
   @Get()
+  @Roles('read')
   async findAll(): Promise<Device[]> {
     return this.deviceService.findAll();
   }
@@ -29,6 +31,12 @@ export class DeviceController {
   @Roles('read')
   async findOne(@Param('id', new MongoPipe()) id: string): Promise<Device> {
     return this.deviceService.findOne(id);
+  }
+
+  @Put(':id')
+  @Roles('update')
+  async updateOne(@Param('id', new MongoPipe()) id: string, @Body() dto: UpdateDeviceDto): Promise<Device> {
+    return this.deviceService.updateOne(id, dto);
   }
 
   @Get(':id/measurements')

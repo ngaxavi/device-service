@@ -25,6 +25,6 @@ import { DeviceModule } from './device/device.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): any {
-    consumer.apply(AuthMiddleware, LoggerMiddleware).forRoutes('api/(.*)?');
+    consumer.apply(AuthMiddleware, LoggerMiddleware).forRoutes('*');
   }
 }
