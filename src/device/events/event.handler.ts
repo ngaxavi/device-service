@@ -6,7 +6,6 @@ import { CreateDeviceDto } from '../dto';
 import { CreateDeviceEvent } from './create-device.event';
 import { DeleteDeviceEvent } from './delete-device.event';
 import { StateDeviceEvent } from './state-device.event';
-import { RegisteredFlatDevices } from '../device.schema';
 
 @Injectable()
 export class EventHandler {
@@ -15,9 +14,9 @@ export class EventHandler {
   async handleEvent(event: Event): Promise<boolean> {
     if (event.action === 'CreateDevice') {
       return this.handleCreateDeviceEvent(event as CreateDeviceEvent);
-    } else if(event.action === 'DeleteDevice') {
+    } else if (event.action === 'DeleteDevice') {
       return this.handleDeleteDeviceEvent(event as DeleteDeviceEvent);
-    } else if(event.action === 'StatusChangeDevice') {
+    } else if (event.action === 'PullStateChangeDevice') {
       return this.handleStatusChangeDeviceEvent(event as StateDeviceEvent);
     } else {
       throw new RpcException(`Unsupported event action: ${event.action}`);

@@ -1,3 +1,5 @@
+import { StateDeviceEvent } from './../device/events/state-device.event';
+import { DeleteDeviceEvent } from './../device/events/delete-device.event';
 import { Event } from '../device/events/event';
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
@@ -15,10 +17,12 @@ export const KafkaEvent = createParamDecorator(
 
     let event: Event;
 
-    console.log(value);
-
     if (value.action === 'CreateDevice') {
       event = plainToClass(CreateDeviceEvent, value);
+    } else if (value.action === 'DeleteDevice') {
+      event = plainToClass(DeleteDeviceEvent, value);
+    } else if (value.action === 'PullStateChangeDevice') {
+      event = plainToClass(StateDeviceEvent, value);
     } else {
       throw new RpcException(`Unknown event action: ${value.action}`);
     }
