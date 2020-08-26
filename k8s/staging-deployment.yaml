@@ -29,7 +29,7 @@ spec:
             - name: KAFKA_HOST
               value: kafka.kafka
             - name: KAFKA_PORT
-              value: "9094"
+              value: '9094'
             - name: CREDENTIALS
               value: WGF2aWVyOnplZHFxdWxyZnFxYwo=
       imagePullSecrets:
@@ -65,6 +65,7 @@ stringData:
   MONGO_USER: device-service
   MONGO_PASSWORD: WzyF86Ec5j64Kcsag1UH
   MONGO_HOST: database
+  PORT: '3000'
 type: Opaque
 
 ---
@@ -88,4 +89,3 @@ spec:
               serviceName: device
               servicePort: 3000
             path: /api/devices
-
