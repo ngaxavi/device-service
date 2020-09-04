@@ -1,25 +1,31 @@
-import { UpdateDeviceDto } from './dto/update-device-dto';
-import { Controller, Get, Param, UseFilters, UseGuards, UsePipes, ValidationPipe, Put, Body } from '@nestjs/common';
-import { KafkaEvent, KafkaExceptionFilter, KafkaTopic } from '@device/kafka';
 import { Roles, RolesGuard } from '@device/auth';
-import { DeviceService } from './device.service';
-import { ConfigService } from '@device/config';
-import { Device, MeasurementStatus } from './device.schema';
+import { KafkaEvent, KafkaExceptionFilter, KafkaTopic } from '@device/kafka';
 import { MongoPipe } from '@device/validation';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Put,
+  Query,
+  UseFilters,
+  UseGuards,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
+import { MeasurementValue, RoomMinMaxMeterValue } from './device.interface';
+import { Device, MeasurementStatus } from './device.schema';
+import { DeviceService } from './device.service';
+import { UpdateDeviceDto } from './dto/update-device-dto';
 import { Event } from './events/event';
 import { EventHandler } from './events/event.handler';
-import { MeasurementValue } from './device.interface';
 
 @Controller('devices')
 @UseGuards(RolesGuard)
 @UseFilters(KafkaExceptionFilter)
 @UsePipes(new ValidationPipe())
 export class DeviceController {
-  constructor(
-    private readonly deviceService: DeviceService,
-    private readonly config: ConfigService,
-    private readonly eventHandler: EventHandler,
-  ) {}
+  constructor(private readonly deviceService: DeviceService, private readonly eventHandler: EventHandler) {}
 
   @Get()
   @Roles('read')
@@ -43,6 +49,15 @@ export class DeviceController {
   @Roles('read')
   async readMeasurements(@Param('id', new MongoPipe()) id: string): Promise<MeasurementValue[]> {
     return this.deviceService.readMeasurements(id);
+  }
+
+  @Get(':flatId/meter')
+  @Roles('read')
+  async getMeterValueDiffForFlat(
+    @Param('flatId') flatId: string,
+    @Query('startTime') startTime: string,
+  ): Promise<RoomMinMaxMeterValue[]> {
+    return this.deviceService.getMinMaxMeterValuePerRoomInFlat(flatId, startTime);
   }
 
   @Get('measurements/status')
