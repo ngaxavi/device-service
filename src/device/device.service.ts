@@ -7,7 +7,7 @@ import { Device, Measurement, MeasurementStatus, RegisteredFlatDevices } from '.
 import { LoggerService } from '@device/logger';
 import { Interval } from '@nestjs/schedule';
 import { CreateDeviceDto } from './dto';
-import { MeasurementValue, RoomMeasurement } from './device.interface';
+import { MeasurementValue, RoomMeasurement, RoomMinMaxMeterValue } from './device.interface';
 import { v4 as uuid } from 'uuid';
 import { ClientKafka } from '@nestjs/microservices';
 
@@ -180,6 +180,31 @@ export class DeviceService {
     return measurement.values as MeasurementValue[];
   }
 
+  async getMinMaxMeterValuePerRoomInFlat(flatId: string, startTime: string): Promise<RoomMinMaxMeterValue[]> {
+    // find all flat devices
+    const result: RoomMinMaxMeterValue[] = [];
+    const flatDevices = await this.model.find({ flatId }).exec();
+
+    if (!flatDevices.length) {
+      throw new NotFoundException();
+    }
+
+    for (const flatDevice of flatDevices) {
+      const measurements: MeasurementValue[] = await this.readMeasurements(flatDevice._id);
+
+      const meterValues = measurements
+        .map((measure: MeasurementValue) => measure.timestamp >= new Date(startTime) && measure.meterValue)
+        .filter((m) => m);
+
+      result.push({
+        roomNr: flatDevice.roomNr,
+        minMeterValue: Math.min(...meterValues),
+        maxMeterValue: Math.max(...meterValues),
+      });
+    }
+    return result;
+  }
+
   private getRoomsMeasurements(flatId: string): Promise<any> {
     this.logger.debug(`Get Measurements of Flat: ${flatId}`);
 
@@ -225,14 +250,12 @@ export class DeviceService {
     await this.measurementModel.bulkWrite(bulkOperations);
 
     for (const device of flatDevices) {
-      console.log(device);
       const roomMeasurement = roomsMeasurements.find((rm: RoomMeasurement) => rm.roomNr === device.roomNr);
       const measurement = {
         timestamp: new Date(roomMeasurement.temperature.timestamp).getTime(),
         temperature: roomMeasurement.temperature.value,
         meterValue: roomMeasurement.meterValue.value,
       };
-      console.log(measurement);
       await this.measurementModel
         .update({ _id: device._id }, { $addToSet: { values: measurement } }, { upsert: true })
         .exec();
