@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/ngaxavi/device-service/compare/v1.1.1...v1.2.0) (2020-09-04)
+
+
+### Features
+
+* add endpoint to get metervalue of all rooms ([a9ea4cd](https://github.com/ngaxavi/device-service/commit/a9ea4cdeadfe1a7c386a6522c53c86cdf9b59199))
+
 ## [1.1.1](https://github.com/ngaxavi/device-service/compare/v1.1.0...v1.1.1) (2020-08-26)
 
 
